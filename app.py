@@ -36,7 +36,7 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     # Webhookイベントを受け取ったら、固定メッセージをグループに送信
-    fixed_message = "こんにちは、これはグループへの固定メッセージです！"
+    fixed_message = "埼玉県の県立コートに空きが出ました！"
     try:
         line_bot_api.push_message(LINE_GROUP_ID, TextSendMessage(text=fixed_message))
         app.logger.info("メッセージをグループに送信しました！")
