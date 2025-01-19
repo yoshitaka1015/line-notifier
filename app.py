@@ -1,47 +1,40 @@
 from flask import Flask, request, abort
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+import requests
 import os
 
 # Flaskアプリケーションの初期化
 app = Flask(__name__)
 
-# 環境変数からLINEのチャネルアクセストークン、シークレット、グループIDを取得
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
-LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET')
-LINE_GROUP_ID = os.getenv('LINE_GROUP_ID')
+# 環境変数からLINE Notifyのアクセストークンを取得
+LINE_NOTIFY_TOKEN = os.getenv('LINE_NOTIFY_TOKEN')
 
-# LINE Bot APIとWebhookHandlerの初期化
-line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
-handler = WebhookHandler(LINE_CHANNEL_SECRET)
+# LINE Notifyのエンドポイント
+LINE_NOTIFY_API = "https://notify-api.line.me/api/notify"
 
 @app.route("/callback", methods=['POST'])
 def callback():
-    # リクエストヘッダーから署名検証のための値を取得
-    signature = request.headers['X-Line-Signature']
-
     # リクエストボディを取得
     body = request.get_data(as_text=True)
     app.logger.info(f"Request body: {body}")
 
-    try:
-        # 署名を検証し、問題なければハンドラーに渡す
-        handler.handle(body, signature)
-    except InvalidSignatureError:
-        abort(400)
-
-    return 'OK'
-
-@handler.add(MessageEvent, message=TextMessage)
-def handle_message(event):
-    # Webhookイベントを受け取ったら、固定メッセージをグループに送信
+    # 固定メッセージをLINE Notifyで送信
     fixed_message = "埼玉県の県立コートに空きが出ました！"
     try:
-        line_bot_api.push_message(LINE_GROUP_ID, TextSendMessage(text=fixed_message))
-        app.logger.info("メッセージをグループに送信しました！")
+        headers = {
+            "Authorization": f"Bearer {LINE_NOTIFY_TOKEN}"
+        }
+        data = {
+            "message": fixed_message
+        }
+        response = requests.post(LINE_NOTIFY_API, headers=headers, data=data)
+        if response.status_code == 200:
+            app.logger.info("メッセージをLINE Notifyで送信しました！")
+        else:
+            app.logger.error(f"LINE Notify送信時にエラーが発生しました: {response.status_code}, {response.text}")
     except Exception as e:
-        app.logger.error(f"メッセージ送信時にエラーが発生しました: {e}")
+        app.logger.error(f"メッセージ送信時に例外が発生しました: {e}")
+
+    return 'OK'
 
 if __name__ == "__main__":
     # アプリケーションを0.0.0.0:5000で起動
